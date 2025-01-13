@@ -2,4 +2,8 @@ module github.com/Adit0507/Election-X
 
 go 1.23.2
 
-require gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
+require (
+	github.com/joeshaw/envdecode v0.0.0-20200121155833-099f1fc765bd // indirect
+	golang.org/x/oauth2 v0.25.0 // indirect
+	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
+)
