@@ -143,5 +143,31 @@ func readFromX(votes chan<- string) {
 			}
 		}
 	}
+}
 
+// continually calls readFromX until we signal we want to stop
+// once it has stopped, will be notified through another channel
+func startXStream(stopchan <-chan struct{}, votes chan<- string) <-chan struct{} {
+	stoppedChan := make(chan struct{}, 1)
+
+	go func() {
+		defer func() {
+			stoppedChan <- struct{}{}
+		}()
+
+		for {
+			select {
+			case <-stopchan:
+				log.Println("Stopping Twitter...")
+				return
+			default:
+				log.Println("Querying Twitter...")
+				readFromX(votes)
+				log.Println("waiting")
+				time.Sleep(5 * time.Second) //wait before reconnecting
+			}
+		}
+	}()
+
+	return stoppedChan
 }
