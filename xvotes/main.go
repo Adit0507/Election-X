@@ -30,7 +30,8 @@ type poll struct {
 // which will be used to search X
 func loadOptions() ([]string, error) {
 	var options []string
-	iter := db.DB("ballots").C("polls").Find(nil).Iter()
+	iter := db.DB("ballots").C("polls").Find(nil).Iter()	//allows us to access each poll one by one	
+	// much mpre memory efficient coz it only uses single poll object
 
 	var p poll
 	for iter.Next(&p) {
