@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/nsqio/go-nsq"
-	"gopkg.in/mgo.v2"
+"gopkg.in/mgo.v2"
 )
 
 var db *mgo.Session
