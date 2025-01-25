@@ -2,6 +2,11 @@ package main
 
 import (
 	"log"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/nsqio/go-nsq"
 	"gopkg.in/mgo.v2"
@@ -50,7 +55,7 @@ func publishVotes(votes <-chan string) <-chan struct{} {
 	pub, _ := nsq.NewProducer("localhost:4150", nsq.NewConfig())
 	go func() {
 		for vote := range votes {
-			pub.Publish("votes", []byte(vote))	//publish vote
+			pub.Publish("votes", []byte(vote)) //publish vote
 		}
 
 		log.Println("Publisher: Stopping")
@@ -63,4 +68,51 @@ func publishVotes(votes <-chan string) <-chan struct{} {
 	return stopChan
 }
 
-func main() {}
+func main() {
+	var stoplock sync.Mutex //protects stop
+	stop := false           //we can acess it from many goroutines
+
+	stopChan := make(chan struct{}, 1)
+	signalChan := make(chan os.Signal, 1)
+
+	go func() {
+		<-signalChan
+		stoplock.Lock()
+		stop = true
+		stoplock.Unlock()
+		log.Println("Stopping...")
+
+		stopChan <- struct{}{}
+		closeConn()
+	}()
+	// used to send signal down signalChan when someone tries to halt programs
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+
+	if err := dialdb(); err != nil {
+		log.Fatalln("failed to dial MongoDB", err)
+	}
+
+	defer closeDb()
+
+	votes := make(chan string)
+	publisherStoppedChan := publishVotes(votes) //passing in votes channel for it to receive from  & capturing the returned stop channel
+	xStoppedChan := startXStream(stopChan, votes)
+
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			closeConn()
+			stoplock.Lock()
+			if stop {
+				stoplock.Unlock()
+				return
+			}
+
+			stoplock.Unlock()
+		}
+	}()
+
+	<-xStoppedChan
+	close(votes)
+	<-publisherStoppedChan
+}
